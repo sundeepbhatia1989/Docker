@@ -1,0 +1,61 @@
+Tests, builds a release, and finally deploys the release into your web app every time you commit the code.
+Azure App service can automatically scale your web application to meet traffic demand.
+
+wget -q -O - https://dot.net/v1/dotnet-install.sh | bash -s -- --version 3.1.102 		#install donet and set variables
+export PATH="~/.dotnet:$PATH"
+echo "export PATH=~/.dotnet:\$PATH" >> ~/.bashrc
+
+
+dotnet new mvc --name <YourAppName>						  #simple webapp  new folder named "YourAppName" to hold your project.
+
+git init
+git add .
+git commit -m "Initial commit"
+
+
+cd BestBikeApp
+dotnet run									#Run donet apps #application is running and listening at port 5000
+
+curl -kL http://127.0.0.1:5000/							#browse to your web application
+
+=================================
+3 point cover below::
+Create and maintain web apps that use Docker images that are stored in Container Registry.
+Use App Service to run web apps that are based on Docker images held in Azure Container Registry.
+Use webhooks to configure continuous deployment of a web app that's based on a Docker image.
+
+git clone https://github.com/MicrosoftDocs/mslearn-deploy-run-container-app-service.git			#download the source code
+cd mslearn-deploy-run-container-app-service/dotnet							#Move to the source folder.
+az acr build --registry <container_registry_name> --image webimage .					##folder's contents to the Container Registry, which uses the instructions in the Docker file to build the image. Webimage is image name.	
+
+Q:Exercise - Create and deploy a web app from a Docker image?
+*****1. Enable Docker access to the Azure Container Registry
+Select the container registry >> Settings, ******select Access keys your container registry>>Set the Admin user option to Enabled. This change saves automatically. You're now ready to create your web app.
+2. Web APP>>Select ACR>Image name is webimage>Deploy Webapp.
+
+*****Update the image and automatically redeploy the web app via Webhook/CD.
+fuss::work
+WEBHOOK
+Azure App Service(services/application) supports continuous deployment using webhooks.(webhook offer via container registry).
+webhook resposible for notification if any change in image.
+App Service receives a notification, your app automatically restarts the site, and pulls the latest version of the image.
+
+What is the Azure Container Registry tasks feature?
+Azure Container Registry allows you to build, store, and manage container images and artifacts in a private registry for all types of container deployments. Use Azure container registries with your existing container development and deployment pipelines. 
+*****Use Azure Container Registry Tasks to build container images in Azure on-demand, or automate builds triggered by source code updates, updates to a container's base image, or timers.
+
+You use the tasks feature of Container Registry to rebuild your image whenever its source code changes automatically.
+You configure a Container Registry task to monitor the GitHub repository that contains your code and trigger a build each time it changes.
+If the build finishes successfully, Container Registry can store the image in the repository.
+If your web app is set up for continuous integration in App Service, it receives a notification via the webhook and updates the app
+
+
+
+The following command shows how to create a task called buildwebapp. The task monitors the GitHub repository for the sample web app used by this module. Each time a change is committed, the task builds the webimage Docker image from the source code in GitHub and stores it to your registry in Container Registry. 
+
+az acr task create --registry <container_registry_name> --name buildwebapp --image webimage --context https://github.com/MicrosoftDocs/mslearn-deploy-run-container-app-service.git --file Dockerfile --git-access-token <access_token>
+
+@
+Exercise - Modify the image and redeploy the web app???
+https://learn.microsoft.com/en-us/training/modules/deploy-run-container-app-service/7-exercise-update-web-app?pivots=csharp
+
