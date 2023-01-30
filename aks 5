@@ -1,0 +1,231 @@
+*****Cautions::After you enable some preview features in Azure, defaults might be used for all AKS clusters created in the subscription. Test any preview features in non-production subscriptions to avoid unforeseen side effects in production deployments.
+
+Optimize compute costs on Azure Kubernetes Service (AKS) - node autoscaling, AKS spot node pools, and Azure Policy.
+*****You'll configure a user node pool and see how to scale the node count to zero. You'll then configure AKS spot node pools by using the cluster autoscaler to access unused Azure compute capacity at a discount. Finally, you'll enable Azure Policy on AKS to manage resource quotas to govern the deployment of AKS compute resources.
+
+Optimize costs on AKS by using zero-scaled node pools
+Optimize costs on AKS by using autoscaled spot node pools 		#Manage application demand in an AKS cluster
+Manage costs with Azure Policy on AKS
+
+
+load is increasing ... manage the cost-effective deployment of many workloads
+cloud-native applications/service ...business policies that govern how your development teams create and use AKS compute resources.
+developing cloud-native applications by using Azure Kubernetes Service (AKS).
+
+Node Pool?
+node pool describes a group of nodes with the same configuration in an AKS cluster. 
+2 Types:
+	System node pools			#Max 30 pods/node. Recommanded 3 nodes minimum
+		System node pools host critical system pods that make up the control plane of your cluster.
+		Every AKS cluster must contain at least one system node pool with at least one node.
+		the use of Linux only as the node OS and runs only Linux-based workloads. 
+	User node pools				#Node can be zero
+		you can specify Windows or Linux as the node operating system.
+		For example: one pool for GPU, two pool for batch processing
+auto scale
+	The horizontal pod autoscaler	#The Kubernetes Metrics Server collects memory and processor metrics from controllers, nodes, and containers. Sent tp metrics api. scales pods only on available nodes 
+	The cluster autoscaler		#You configure each node pool with different scale rules.
+manually scale  #control node costs.
+
+***** You lose the ability to scale the node count to zero when you enable the cluster autoscaler on a node pool.
+********To optimize costs on AKS when you manage workload demands directly, a good strategy is to:
++++++++++++++++++++++++++++++++++++++++
+****What is a spot virtual machine (spot VM) in Azure?
+ gives you access to unused Azure compute capacity at deep discounts.
+		High-performance computing scenarios, batch processing, or visual-rendering applications.
+		Large-scale, stateless applications.
+		Developer/test environments, including continuous integration (CI) and continuous delivery (CD) workloads.
+
+What is a spot virtual machine scale set?
+	Deallocate: The Deallocate policy functions exactly as described earlier.
+	Delete: The Delete policy allows you to avoid the cost of disks and hitting quota limits.
+***A best practice is to use the autoscale feature only when you set the eviction policy to Delete on the scale set.
+
+What is a spot node pool in Azure Kubernetes Service (AKS)?
+Need to create user node pools.
+Want the cost benefits offered by virtual machine scale set support for Azure spot VMs
+
+Use spot node pools to:
+Take advantage of unused capacity in Azure.
+Use scale set features with the Delete eviction policy.
+Define the maximum price you want to pay per hour.
+Enable the recommended AKS Kubernetes cluster autoscaler when using spot node pools
+
+Spot node pool limitations:
+The underlying spot scale set is deployed only to a single fault domain and offers no high-availability guarantees.
+The AKS cluster needs multiple node-pool support to be enabled.
+You can use spot node pools only as user node pools.
+Spot node pools can't be upgraded.
+The creation of spot VMs isn't guaranteed. The creation of spot nodes depends on capacity and quota availability in the cluster's deployed Azure region.
+
+
+Manually scale the node count in node pools.
+Scale expensive, NV-based user node pools to zero.
+Let's look at a strategy where you need to scale nodes
+
+
+1. Suppose your software solution has three critical components. The first component is a web application. The second is a service that processes online orders. The third is a video-rendering and analysis service that runs only as needed and that requires GPU-based VMs. To optimize cost, how many node pools would you deploy in an Azure Kubernetes Service (AKS) cluster to manage the solution?
+
+Deploy three user node pools on the AKS cluster. Create the first and second node pools with standard-sized VMs and the third node pool with specialized, GPU-based VMs. Enable autoscaling on the first two node pools. Scale the GPU-based node pool manually.
+An AKS cluster with three user node pools gives you flexibility to scale the node count in each pool independently for each component in the solution. Because you didn't enable the autoscaler on the GPU-based node pool, that pool's node count can be scaled to zero to optimize compute costs.
+
+az aks nodepool add \					#use to create the node pool
+    --resource-group resourceGroup \
+    --cluster-name aksCluster \
+    --name gpunodepool \
+    --node-count 1 \
+    --node-vm-size Standard_NC6 \
+    --no-wait
+
+az aks nodepool scale \				#command to scale the node pool to zero nodes
+    --resource-group resourceGroup \
+    --cluster-name aksCluster \
+    --name gpunodepool \
+    --node-count 0				#node pool to zero nodes
+
+Create a spot node pool
+https://learn.microsoft.com/en-us/training/modules/aks-optimize-compute-costs/5-exercise-spot-node-pools
+
+Enter the following values to set the node pool's parameters:
+	Name: batchprocpl2
+	Priority: Spot
+	Eviction policy: Delete
+	Spot maximum price: -1
+
+az aks nodepool add \				#Create a spot node pool
+    --resource-group $RESOURCE_GROUP \
+    --cluster-name $AKS_CLUSTER_NAME \
+    --name batchprocpl2 \
+    --enable-cluster-autoscaler \
+    --max-count 3 \
+    --min-count 1 \
+    --priority Spot \
+    --eviction-policy Delete \
+    --spot-max-price -1 \
+    --node-vm-size Standard_DS2_v2 \
+    --no-wait
+
+Schedule a pod with spot node affinity
+https://learn.microsoft.com/en-us/training/modules/aks-optimize-compute-costs/5-exercise-spot-node-pools
+When the toleration and node affinity correspond with the taint and label applied to your spot nodes, the pod is scheduled on these nodes.
+
+The nodes in a spot node pool are assigned a taint that equals kubernetes.azure.com/scalesetpriority=spot:NoSchedule and a label that equals kubernetes.azure.com/scalesetpriority=spot. Use the information in this key-value pair in the tolerations and affinity section of your workloads YAML manifest file.
+
+Exercise - Configure multiple nodes and enable scale-to-zero on an AKS cluster
+https://learn.microsoft.com/en-us/training/modules/aks-optimize-compute-costs/3-exercise-node-pools
+
+Configure multiple node pools by using AKS spot node pools with the cluster autoscaler
+
+
++++++++++++++
+Configure the Kubernetes context
+
+You run kubectl to interact with your cluster's API server. You have to configure a Kubernetes cluster context to allow kubectl to connect. 
+The context contains the cluster's address, a user, and a namespace.
+un the az aks get-credentials command to configure the Kubernetes context.
+
+
+++++++++++++++++
+Enable the cluster autoscaler
+We recommend that you enable the cluster autoscaler by using the --enable-cluster-autoscaler parameter
+
+https://learn.microsoft.com/en-us/training/modules/aks-optimize-compute-costs/4-spot-node-pools
+
+What is a taint?
+A taint is applied to a node to indicate that only specific pods can be scheduled on it. Spot nodes are configured with a label set to kubernetes.azure.com/scalesetpriority:spot.
+
+What is toleration?
+Toleration is a specification applied to a pod to allow, but not require, a pod to be scheduled on a node with the corresponding taint. Spot nodes are configured with a node taint set to kubernetes.azure.com/scalesetpriority=spot:NoSchedule.
+
+Taints and tolerations don't guarantee a pod will be placed on a specific node. For example, if a node has no taint, then it's possible that the pod with the toleration may be scheduled on the untainted node. Specifying an affinity with taints and tolerations can address this issue.
+
+What is node affinity?
+You use node affinity to describe which pods are scheduled on a node. Affinity is specified by using labels defined on the node. 
+
+Suppose you have a stateless service that processes online orders and runs on an Azure Kubernetes Service (AKS) cluster. You decide to use spot node pools on the AKS cluster to optimize compute costs on the cluster. How do you add spot node pools to an AKS cluster?
+Run the az aks nodepool add command to add a new spot user node pool to the AKS cluster.
+
+2. For the service described in the preceding question, which eviction policy is the most cost-effective option for configuring the spot node pool?
+Use the az aks update command to set the --eviction-policy to Delete.
+
+3. For the service described in the preceding questions, how do you ensure that workloads are scheduled on the nodes of the spot user node pool?
+Configure the workload manifest file with a toleration that applies the NoSchedule effect. Both the affinity and toleration use the key kubernetes.azure.com/scalesetpriority. This configuration tells the system to schedule the workload on the nodes in the spot node pool.
+
+++++
+Next unit: Exercise - Configure spot node pools with the cluster autoscaler on an AKS cluster
+
+1. What is a Kubernetes admission controller?
+An admission controller is a Kubernetes plug-in that intercepts authenticated and authorized requests to the Kubernetes API before the requested Kubernetes object's persistence.
+It limits requests to create, delete, and modify Kubernetes objects.
+
+For example, suppose you deploy a new workload, and the deployment includes a pod request with specific memory requirements. The admission controller intercepts the deployment request and must authorize the deployment before it's persisted to the cluster.
+
+2.What is an admission-controller webhook?
+An admission-controller webhook is an HTTP callback function that receives admission requests and then acts on these requests. Admission controllers exist either as a compiled-in admission plug-in or as a deployed extension that runs as a webhook that you configure at runtime.
+
+Admission webhooks are available in two kinds: either a validating webhook or a mutating webhook. 
+	A mutating webhook is invoked first and can change and apply defaults on the objects sent to the API server. 
+	A validation webhook validates object values and can reject requests.
+
+
+3.What is the Open Policy Agent (OPA)?
+These policies enable you to define rules that oversee how your system should behave.
+
+4.What is the OPA Gatekeeper?
+OPA Gatekeeper (version 3) is supported by Azure Kubernetes Service
+Validating, Kubernetes admission-controller webhook that enforces Custom Resource Definition (CRD)-based policies by using the Open Policy Agent.
+
+5.Azure Policy for AKS
+Azure Policy extends OPA Gatekeeper version 3 and integrates with AKS through built-in policies.
+DevSpaces to simplify their Kubernetes development workflow.
+You decide to put a policy in place that defines the compute resources, storage resources, and object count permitted in the development namespaces.
+To set up resource limits, you can apply resource quotas at the namespace level and monitor resource usage to adjust policy quotas.
+
+How to enable the Azure Policy Add-on for AKS?
+
+You manage your Azure environment's policies by using the Azure policy compliance dashboard. 
+Each policy is defined by using a series of configuration steps. 
+For example: The name of the policy is Ensure container CPU and memory resource limits do not exceed the specified limits in Kubernetes cluster.
+In this poicy below paramemter come:
+	The maximum CPU units allowed for a container.
+	The maximum memory bytes allowed for a container.
+	A list of Kubernetes namespaces to exclude from the policy.
+
+2. example: Compare that policy with the Web Application should only be accessible over HTTPS policy,
+
+3. For example, for the resource-management policy, you can select audit, deny, or disable as the value for Effect.
+All policies have an Effect setting. This setting enables or disables the execution of the policy.
+
+Azure policies in one of two ways: as a group of policies, called an initiative, or as a single policy.
+	Initiative:For example, the goal might be to apply the Payment Card Industry Data Security Standard across your resources.
+	Single:Do not allow privileged containers in Kubernetes cluster.
+
+Policy remediation?
+When you assign policies, it's possible that resources already exist and are impacted by the new policy. 
+By default, only newly created resources are affected by the new policy. 
+Remediation tasks will differ depending on the types of policies applied.
+
+Enable two features:
+az provider register --namespace Microsoft.ContainerService
+az provider register --namespace Microsoft.PolicyInsights
+
+az feature register --namespace Microsoft.ContainerService --name AKS-AzurePolicyAutoApprove		#Register the AKS-AzurePolicyAutoApprove feature with the Microsoft. ContainerService 
+
+az provider register -n Microsoft.ContainerService		#After you confirm the successful registration of the feature
+
+az extension add --name aks-preview				# Install the Azure CLI preview extension and enable the Azure Policy Add-on
+
+az aks enable-addons \
+    --addons azure-policy \
+    --name myAKSCluster \
+    --resource-group myResourceGroup
+
+
+Activating the add-on will schedule workloads in two namespaces on your cluster.
+	The first namespace is kube-system, where you'll find azure-policy and azure-policy-webhook.
+	The second namespace is gatekeeper-system, where you'll find gatekeeper-controller-manager.
+
+These workloads are responsible for evaluating requests submitted to the AKS control plane. Based on your configured policies, the policy webhook will allow or deny requests.
+
+Exercise - Configure Azure Policy for Kubernetes on an AKS cluster
+https://learn.microsoft.com/en-us/training/modules/aks-optimize-compute-costs/7-exercise-resource-quota-azure-policy
