@@ -1,0 +1,310 @@
+DataDogs:3 ways
+Agent
+API
+Authentication:: Cloud trial/ Activity logs
+==============================================
+
+Docker: Monitor nodes and same environment.
+Docker(use OS host kernel, lib) is a tool for running containerized apps(FS, App, DB).
+Docker ensures that one container cannot access the resources of another unless the containers are configured to do so.
+**Docker 1st Stop then terminate.
+If you are trying then you acounter error:
+Error response from daemon: conflict: unable to delete 575d85b4a69b (cannot be forced) - image is being used by running container c13165988cfe
+
+Linux Host>>Only run Linux Container
+Windows Host>> Both Linux & Windows
+
+A single image can have multiple tags.
+
+docker pull mcr.microsoft.com/dotnet/core/samples:aspnetapp
+docker run -p 8080:80 -d mcr.microsoft.com/dotnet/core/samples:aspnetapp
+
+FROM mcr.microsoft.com/dotnet/core/sdk:2.2
+WORKDIR /app
+COPY myapp_code .
+RUN dotnet build -c Release -o /rel
+EXPOSE 80
+WORKDIR /rel
+ENTRYPOINT ["dotnet", "myapp.dll"]
+
+docker build -t myapp:v1 .
+
+Customize a Docker image to run your own web app:
+Q: You select a simple web app that implements a web API for a hotel reservations website. The web API exposes HTTP POST and GET operations that create and retrieve customers' bookings?
+Ans: https://learn.microsoft.com/en-us/training/modules/intro-to-containers/5-exercise-create-custom-docker-image
+OR
+Exercise - Deploy a Docker image to an Azure Container Instance
+https://learn.microsoft.com/en-us/training/modules/intro-to-containers/7-exercise-deploy-docker-image-to-container-instance
+
+
++++++++++++++++++
+Three ways:
+Retrieve an existing Docker image and deploy it locally
+
+Customize a Docker image to run your own web app
+
+Deploy a Docker image to an Azure Container Instance
+
+Azure Container Instance is a service that loads and runs Docker images on demand from Docker Hub or Azure Container Registry.
+Why ACI?
+Linux and Windows: Schedule both Windows and Linux containers using the same API.
+By default, ACI  are stateless.
+
+ 
+Login in ACI:
+docker login <myregistry>.azurecr.io
+az acr credential show --name <myregistry> --resource-group <mygroup>
+az acr repository list --name myregistry --resource-group <mygroup>    ##Check Repository
+
+Creating ACI:
+az group create --name <mygroup> --location <westus>
+az acr create --name <unique name> --resource-group mygroup --sku standard --admin-enabled true
+
+You push an image from your local computer to a Docker registry.
+docker tag reservationsystem myregistry.azurecr.io/reservationsystem:v2   ##repository name must be of the form *<login_server>/<image_name>:<tag/>
+or 
+Upload the image for the hotel reservation system app to Azure Container Registry 
+docker tag reservationsystem:latest <registry-name>.azurecr.io/reservationsystem:latest   ##replacing <registry-name> with the name of your container registry, to tag the current reservationsystem image with the name of your registry
+
+docker push myregistry.azurecr.io/reservationsystem:v2 			  ##Push
+
+Use Azure Container Instance to run an image
+az container create --resource-group mygroup --name myinstance --image myregistry.azurecr.io/myapp:latest --dns-name-label mydnsname --registry-username <username> --registry-password <password>
+
+IP of ACI
+az container show --resource-group mygroup --name myinstance --query ipAddress.fqdn
+
+You can access the application using a web browser.
+
+Q: Rebuild the image for the web app and upload it to Azure Container Registry
++++++++++++++++++++++++++++++++++++++++
+
+Run containers in Azure Container Instances
+Control what happens when your container exits
+Use environment variables to configure your container when it starts
+Attach a data volume to persist data when your container exits
+Learn some basic ways to troubleshoot issues on your Azure containers
+
+
+================================
+Steps Create Container:
+
+az group create --name learn-deploy-aci-rg --location eastus 			##Create RG
+DNS_NAME_LABEL=aci-demo-$RANDOM   						## Create random DNS
+
+az container create \								##Create Container
+  --resource-group learn-deploy-aci-rg \
+  --name mycontainer \
+  --image mcr.microsoft.com/azuredocs/aci-helloworld \
+  --ports 80 \
+  --dns-name-label $DNS_NAME_LABEL \
+  --location eastus
+
+az container create \								##Create Container with Policy 
+  --resource-group learn-deploy-aci-rg \	## Which restart policy is typically the best choice for long-running tasks that service requests ? Always
+  --name mycontainer-restart-demo \
+  --image mcr.microsoft.com/azuredocs/aci-wordcount:latest \
+  --restart-policy OnFailure \
+  --location eastus
+
+
+az container show \								##Show Container
+  --resource-group learn-deploy-aci-rg \
+  --name mycontainer \
+  --query "{FQDN:ipAddress.fqdn,ProvisioningState:provisioningState}" \
+  --output table
+
+az container show \								## Show Container Policy
+  --resource-group learn-deploy-aci-rg \
+  --name mycontainer-restart-demo \
+  --query "containers[0].instanceView.currentState.state"
+
+
+az container logs \								###Logs ##Get logs from your prior deployed container instance
+  --resource-group learn-deploy-aci-rg \
+  --name mycontainer-restart-demo
+
+**az container attach command shows container events and logs. 
+**By contrast, the az container logs only shows the logs and not the startup events.
+
+az container attach \								##Log as streaming
+  --resource-group learn-deploy-aci-rg \
+  --name aci-demo
+
+Enter Ctrl+C to disconnect from your attached container.			##disattached container		
+
+Now browser, go to your container's FQDN to see it running. Ensure you enter the http:// prefix in front of the aci-demo... string. You should get this welcome page:
+==============================
+Troubleshooting on container
+
+az container exec \								##run commands directly on your running container
+  --resource-group learn-deploy-aci-rg \
+  --name aci-demo \
+  --exec-command /bin/sh
+
+CONTAINER_ID=$(az container show \				##Get the ID of your Azure container instance and store the ID in a Bash variable
+  --resource-group learn-deploy-aci-rg \
+  --name aci-demo \
+  --query id \
+  --output tsv)
+
+az monitor metrics list \						##CPU usgae
+  --resource $CONTAINER_ID \
+  --metrics CPUUsage \
+  --output table
+
+az monitor metrics list \						##Memory usage
+  --resource $CONTAINER_ID \
+  --metrics MemoryUsage \
+  --output table
+
+=========================
+ACI with CosmoBD
+
+Q: Azure container instance that can read from and write records to your Azure Cosmos DB instance.
+
+
+Environment variables allow you to dynamically configure .
+An application in the container uses the variables to write and read data from Azure Cosmos DB
+Both an environment variable and a secured environment variable so you can see the difference between them.
+
+
+COSMOS_DB_NAME=aci-cosmos-db-$RANDOM				##unique database name
+
+COSMOS_DB_ENDPOINT=$(az cosmosdb create \			##Create CosmoDB
+  --resource-group learn-deploy-aci-rg \
+  --name $COSMOS_DB_NAME \
+  --query documentEndpoint \
+  --output tsv)
+
+az container create \						#Create container that works with your CosmoDB database without secure connection
+  --resource-group learn-deploy-aci-rg \
+  --name aci-demo \
+  --image mcr.microsoft.com/azuredocs/azure-vote-front:cosmosdb \
+  --ip-address Public \
+  --location eastus \
+  --environment-variables \
+    COSMOS_DB_ENDPOINT=$COSMOS_DB_ENDPOINT \
+    COSMOS_DB_MASTERKEY=$COSMOS_DB_MASTERKEY
+
+az container show \						#Show CosmoDB
+  --resource-group learn-deploy-aci-rg \
+  --name aci-demo \
+  --query ipAddress.ip \
+  --output tsv
+
+az container show \						#Show CosmoDB.It is showing environment variable as well.
+  --resource-group learn-deploy-aci-rg \
+  --name aci-demo \
+  --query containers[0].environmentVariables
+
+it's a good security practice to ensure that sensitive information (such as connection keys) isn't stored in plain text.
+
+[
+  {
+    "name": "COSMOS_DB_ENDPOINT",
+    "secureValue": null,
+    "value": "https://aci-cosmos.documents.azure.com:443/"
+  },
+  {
+    "name": "COSMOS_DB_MASTERKEY",
+    "secureValue": null,
+    "value": "Xm5BwdLlCllBvrR26V00000000S2uOusuglhzwkE7dOPMBQ3oA30n3rKd8PKA13700000000095ynys863Ghgw=="
+  }
+]
+
+
+az container create \						#Create CosmoDB with secure connection		
+  --resource-group learn-deploy-aci-rg \
+  --name aci-demo-secure \
+  --image mcr.microsoft.com/azuredocs/azure-vote-front:cosmosdb \
+  --ip-address Public \
+  --location eastus \
+  --secure-environment-variables \
+    COSMOS_DB_ENDPOINT=$COSMOS_DB_ENDPOINT \
+    COSMOS_DB_MASTERKEY=$COSMOS_DB_MASTERKEY
+
+az container show \						#Show CosmoDB. It is showing not environment variable as well.
+  --resource-group learn-deploy-aci-rg \
+  --name aci-demo-secure \
+  --query containers[0].environmentVariables
+
+[
+  {
+    "name": "COSMOS_DB_ENDPOINT",
+    "secureValue": null,
+    "value": null
+  },
+  {
+    "name": "COSMOS_DB_MASTERKEY",
+    "secureValue": null,
+    "value": null
+  }
+]
+
+
+COSMOS_DB_MASTERKEY=$(az cosmosdb keys list \		##Get the Azure Cosmos DB connection key and store it in a Bash variable named COSMOS_DB_MASTERKEY:
+  --resource-group learn-deploy-aci-rg \
+  --name $COSMOS_DB_NAME \
+  --query primaryMasterKey \
+  --output tsv)
+
+
+COSMOS_DB_ENDPOINT and COSMOS_DB_MASTERKEY, hold the values you need to connect to the Azure Cosmos DB instance.
+
+==========================
+Exercise - Use data volumes
+
+Q: Create storage account and file share.
+
+STORAGE_ACCOUNT_NAME=mystorageaccount$RANDOM
+
+az storage account create \									##Create Storage acccount
+  --resource-group learn-deploy-aci-rg \
+  --name $STORAGE_ACCOUNT_NAME \
+  --sku Standard_LRS \
+  --location eastus
+
+export AZURE_STORAGE_CONNECTION_STRING=$(az storage account show-connection-string \		##place storage account in variable
+  --resource-group learn-deploy-aci-rg \
+  --name $STORAGE_ACCOUNT_NAME \
+  --output tsv)
+
+az storage share create --name aci-share-demo					## create a file share named
+
+
+====================
+Q: Azure file share as a volume in Azure Container Instances, you need these three values:
+
+Storage account name
+Share name
+Storage account access key
+
+STORAGE_KEY=$(az storage account keys list \				#Get Access get
+  --resource-group learn-deploy-aci-rg \
+  --account-name $STORAGE_ACCOUNT_NAME \
+  --query "[0].value" \
+  --output tsv)
+
+echo $STORAGE_KEY							#Show Stotage account
+
+az storage file list -s aci-share-demo -o table				#Show data in storage account file share
+az storage file download -s aci-share-demo -p <filename>		#Download  data in storage account file share
+
+az container create \							# Deploy a container and mount the file share
+  --resource-group learn-deploy-aci-rg \
+  --name aci-demo-files \
+  --image mcr.microsoft.com/azuredocs/aci-hellofiles \
+  --location eastus \
+  --ports 80 \
+  --ip-address Public \
+  --azure-file-volume-account-name $STORAGE_ACCOUNT_NAME \
+  --azure-file-volume-account-key $STORAGE_KEY \
+  --azure-file-volume-share-name aci-share-demo \
+  --azure-file-volume-mount-path /aci/logs/
+
+az container show \							#Show File share in Containers
+  --resource-group learn-deploy-aci-rg \
+  --name aci-demo-files \
+  --query ipAddress.ip \
+  --output tsv
