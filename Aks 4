@@ -1,0 +1,316 @@
+A container is an atomic unit of software that packages up code, dependencies, and configuration for a specific application. Containers allow us to split up monolithic applications into individual services that make up the solution.
+same image
+leight weighted
+start fast
+
+chanllenges in containers:
+ new version of your caching service
+
+1. Docker containers
+2. Container orchestration with Kubernetes/container management platform such as Kubernetes( like deployment management, automatic updates, and self-healing)
+3. Managed clusters on Azure Kubernetes Service
+Changellanges:
+Suppose you need to handle load balancing, security, network connectivity, and deployment.
+So, k8S  provides your application with several benefits, such as availability, monitoring, scaling, and rolling updates.
+
+***AKS is an appropriate Kubernetes orchestration platform for you
+***Describe how the components of AKS work to support compute container orchestration
+
+
+
+Kubernetes isn't a full PaaS offering. It operates at the container level and offers only a common set of PaaS features.
+If your application can run in a container, it can run on Kubernetes
+Kubernetes doesn't provide middleware, data-processing frameworks, databases, caches, nor cluster storage systems. All these items are run as containers.
+the preferred master configuration is a multi-master high availability deployment with three to five replicated masters.
+you're responsible for maintaining your Kubernetes cluster.
+K8s. The 8 represents the eight characters between the K and the s of the word K[ubernete]s.
+
++++++++++++++++++
+2 approach  in migration:
+1. green fields			##allow you to evaluate AKS based on default features.
+2. lift-and-shift project	##force you to look at which features are best suited to support your migration
+
+
+The Kubernetes cluster name
+The version of Kubernetes to install
+A DNS prefix to make the master node publicly accessible
+The initial node pool size
+components will contribute to your monthly Azure charge? 
+Ans: per pods.
+Q: Suppose you work for a company that monitors weather conditions. Your team of developers needs to do end-to-end testing with other components in your AKS cluster. The team wants to do testing without replicating or mocking up dependencies. Which service should they use?
+Ans Bridge to Kubernetes allows for the development of code in isolation, and do end-to-end testing with other components without replicating or mocking up dependencies.
+
+*****Azure Service Integration >>> AKS allows us to integrate any Azure service offering.
+For Example:
+Kubernetes doesn't provide middleware and storage systems. Suppose you need to add a processing queue to the fleet management data processing service. You can easily integrate Storage queues using Azure Storage.
+
+When to use Azure Kubernetes Service???
+ provides your application with several benefits, such as availability, monitoring, scaling, and rolling updates.
+******************************
+Features of AKS::
+******************************
+Identity and security management	You can configure an AKS cluster to integrate with Azure AD and reuse existing identities and group membership.
+
+Integrated logging and monitoring	AKS includes Azure Monitor for containers to provide performance visibility of the cluster. Monitoring solution that requires installation and configuration.
+
+Auto Cluster node and pod scaling	Deciding when to scale up or down in large containerization environment is tricky. 
+AKS supports two auto cluster scaling options. 
+You can use either the horizontal pod autoscaler or the cluster autoscaler to scale the cluster. 
+The horizontal pod autoscaler watches the resource demand of pods and will increase pods to match demand.
+The cluster autoscaler component watches for pods that can't be scheduled because of node constraints. It will automatically scale cluster nodes to deploy scheduled pods.
+
+Cluster node upgrades		AKS manages Kubernetes software upgrades and the process of cordoning off nodes and draining them to minimize disruption to running applications. Once done, these nodes are upgraded one by one.
+
+GPU enabled nodes		AKS supports GPU enabled node pools.
+
+Storage volume support		Is your application stateful, and does it require persisted storage? AKS supports both static and dynamic storage volumes. Pods can attach and reattach to these storage volumes as they're created or rescheduled on different nodes.
+
+Virtual network support		Do you need pod to pod network communication or access to on-premises networks from your AKS cluster? An AKS cluster can be deployed into an existing virtual network with ease.
+
+Ingress with HTTP application routing support	Do you need to make your deployed applications publicly available? The HTTP application routing add-on makes it easy to access AKS cluster deployed applications.
+
+Docker image support		Do you already use Docker images for your containers? AKS by default supports the Docker file image format.
+
+Private container registry	Do you need a private container registry? AKS integrates with Azure Container Registry (ACR). You aren't limited to ACR though, you can use other container repositories, public, or private.
+
++++++++++++++
+Create and set up an Azure Kubernetes Service cluster.
+Deploy Kubernetes workloads by using deployment YAML files.
+Expose Kubernetes workloads by using services and ingress.
+
+Ways:
+Single control plane and multiple nodes
+Single control plane and a single node
+
+1. Install Kubectl.
+These items include:
+	Node pools
+	Node count
+	Automatic routing 		#A Kubernetes cluster blocks all external communications by default.  You need to manually create an ingress with an exception that allows incoming client connections to that particular service.
+internal IP on the cluster, and finally to your application 		## automatically deployed ingress controller.
+
+Ingress controllers provide the capability to deploy and expose your applications to the world without the need to configure network-related services.
+You don't have to create a DNS record every time a new service is deployed
+ingress controller creates a new record on an Azure managed DNS zone and links it to an existing load balancer.
+
+1. Which of the following describes a Kubernetes cluster architecture?
+Single control plane, several nodes.
+What are node pools?
+A configuration to create multiple node types in the same cluster.
+What are node pools?
+A configuration to create multiple node types in the same cluster.
+Allows for instant exposing of an app to external networks when you create ingresses.
+
++++++++++++++
+Exercise - Create an Azure Kubernetes Service cluster
+
+export RESOURCE_GROUP=rg-contoso-video				#Create variables
+export CLUSTER_NAME=aks-contoso-video
+export LOCATION=<myLocation>					#for example: eastus
+
+az group create --name=$RESOURCE_GROUP --location=$LOCATION	#create RG
+
+az aks create \							#****Create cluster
+    --resource-group $RESOURCE_GROUP \
+    --name $CLUSTER_NAME \
+    --node-count 2 \						#cluster will have two nodes. nodes will be part of (System mode).
+    --enable-addons http_application_routing \			#HTTP application routing add-on is enabled
+    --generate-ssh-keys \
+    --node-vm-size Standard_B2s \
+    --network-plugin azure \
+    --windows-admin-username localadmin				# prompts the user to set a password at the command line
+
+
+az aks nodepool add \						#***adds a new node pool (User mode) to existing AKS cluster(created in the previous command)
+    --resource-group $RESOURCE_GROUP \
+    --cluster-name $CLUSTER_NAME \
+    --name uspool \						#new node pool used to host applications and workloads, instead of System node pool, which created in the previous step using az aks create.
+    --node-count 2 \
+    --node-vm-size Standard_B2s \
+    --os-type Windows				
+
+az aks get-credentials --name $CLUSTER_NAME --resource-group $RESOURCE_GROUP  #***Link your Kubernetes cluster with kubectl
+
+kubectl get nodes						#to check that you can connect to your cluster
+
++++++++++++++++++
+Kubernetes only allows you to deploy images hosted in a container registry. 
+Creating a private container registry will normally be part of your standard AKS deployment strategy.
+
+POD?
+A Kubernetes pod groups containers and applications into a logical structure.
+ Each one has an IP address, network rules, and exposed ports.
+ 
+Kubernetes deployment?
+A Kubernetes deployment is an evolution of pods.
+ deployment wraps the pods into an intelligent object that allows them to scale out.
+You can easily duplicate and scale your application
+
+Manifast File?
+Manifest files contain all the information that's needed to create and manage the described workload.
+A Kubernetes manifest file allows you to describe your workloads in the YAML format 
+Imagine you have to deploy a workload by hand. You need to think about and manage several aspects. You'd need to create a container, select a specific node, wrap it in a pod, run the pod, monitor execution, and so on.
+
+label?
+A Kubernetes label allows you to logically group Kubernetes objects.
+
+1. What is a container registry?
+Remote storage where we can store our images safely so Kubernetes can download and run them.
+
+
+
+Install the operating system.
+Make sure to update the OS to the latest security and software patches.
+Install and configure the web server software.
+Deploy the web application.
++++++++++++++++++++
+Structure of AKS
++++++++++++++++++++++
+
+apiVersion: apps/v1 # Where in the API it resides
+kind: Deployment # The kind of workload we're creating
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: contoso-website 			# This will be the name of the deployment.All Kubernetes resources must have a name
+
+# deployment.yaml				#Group objects in a deployment. Deployments make use of a label to find and group pods.
+# ...
+spec:
+  selector:
+    matchLabels:
+      app: contoso-website
+# ...
+
+--------------------------------------------------
+Deploy an application on your Azure Kubernetes Service cluster
+
+touch deployment.yaml			#create a manifest file for the Kubernetes deployment
+
+ 
+# deployment.yaml			#Step1 Open the integrated editor in Cloud Shell by entering code .
+apiVersion: apps/v1			#Step2 The API resource where this workload resides
+kind: Deployment
+metadata:
+  name: contoso-website			#Step3 This will be the name of the deployment
+spec:
+  selector: 				#Step4 Define the wrapping strategy. 
+    matchLabels: 			# Match all pods with the defined labels
+      app: contoso-website 		# Labels follow the `name: value` template
+  template: 				# This is the template of the pod inside the deployment
+    metadata:
+      labels:
+        app: contoso-website
+    spec:
+      nodeSelector:			#Step8 Finally The selector key is placed inside the deployment specification section of the manifest file. Use the matchLabels key to list the labels for all the pods managed by the deployment.
+        kubernetes.io/os: linux
+      containers:			#Step5 All pods have a specification section that allows you to define the containers inside that pod.
+        - image: mcr.microsoft.com/mslearn/samples/contoso-website
+          name: contoso-website
+          resources:			#Step6 It's a good practice to define a minimum and a maximum amount of resources that the app is allowed to use
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          ports:			#Step 7 The last step is to define the ports this container will expose externally through the ports key
+            - containerPort: 80
+              name: http
+
+
+
+kubectl apply -f ./deployment.yaml		# submit the deployment manifest to your cluster
+kubectl get deploy contoso-website		#check if the deployment was successful
+kubectl get pods				#check pods
+
+
+++++++++++++++
+Enable network access to an application
+https://learn.microsoft.com/en-us/training/modules/aks-deploy-container-app/6-expose-app
+
+1. What's the purpose of the ClusterIP service type?
+To group pods into one single IP that's only available within the cluster.
+
+2. What's the purpose of the LoadBalancer service type?
+To expose the service externally by using Azure's load-balancing solution.
+
+ingress?
+A workload to define the set of rules that allow external applications into the cluster.
+
+Acts as a reverse proxy to allow external URLs.
+Might act as a load balancer.
+Terminates SSL/TLS requests.
+Offers name-based virtual hosting.
+
+What are ingress rules?
+Ingress rules define where traffic is coming from and where to direct it within a cluster. 
+Each rule is a set of values that describes the rule.
+
+What is an annotation?
+An annotation allows you to attach non-identifying metadata, such as ingress configurations, for workloads.
+
+For example:  http://example.com/site
+****defines a rule that allows all traffic using the address example.com and path /site to enter the cluster.
+
+
+rules:					#You define ingress rules in an ingress deployment manifest file.
+  - host: example.com 			# A FQDN that describes the host where that rule should be applied
+    http:
+      paths: 				# A list of paths and handlers for that host
+        - path: /site 			# Which path is this rule referring to
+          backend: 			# How the ingress will handle the requests
+            serviceName: contoso-website # Which service the request will be forwarded to
+            servicePort: 80 		# Which port in that service
+
+#ingress.yaml				#example of the annotation in a manifest file that specifies the use of the HTTP application routing add-on
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: contoso-website
+  annotations:
+    kubernetes.io/ingress.class: addon-http-application-routing # Use the HTTP application routing add-on
+
+
+touch service.yaml
+
+#service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: contoso-website
+spec:
+  type: ClusterIP
+  selector:
+    app: contoso-website
+  ports:
+    - port: 80 # SERVICE exposed port
+      name: http # SERVICE port name
+      protocol: TCP # The protocol the SERVICE will listen to
+      targetPort: http # Port to forward to in the POD
+
+kubectl apply -f ./service.yaml
+
+kubectl get service contoso-website
+
+
+touch ingress.yaml
+
+#ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: contoso-website
+  annotations:
+    kubernetes.io/ingress.class: addon-http-application-routing  #reate an annotations key inside the metadata section of the manifest file called to use the HTTP application
+
+
+az aks show \				#Set the fully qualified domain name (FQDN) of the host allowed access to the cluster.
+  -g $RESOURCE_GROUP \
+  -n $CLUSTER_NAME \
+  -o tsv \
+  --query addonProfiles.httpApplicationRouting.config.HTTPApplicationRoutingZoneName
+
+Follow this link: igress file need to update 3 to 4 times.
+https://learn.microsoft.com/en-us/training/modules/aks-deploy-container-app/7-exercise-expose-app
